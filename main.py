@@ -64,22 +64,22 @@ elif menu == "Planner Portal 🔒":
                 use_container_width=True,
                 hide_index=True,
                 # Make Game details read-only, but allow editing of Referees
-                disabled=["GameID", "Time", "Pitch", "HomeTeam", "AwayTeam"],
+                disabled=['Datum', 'uur', 'locatie', 'wedstrijd'],
                 column_config={
-                    "Ref1_Name": st.column_config.SelectboxColumn(
-                        "Referee 1",
+                    "ref1": st.column_config.SelectboxColumn(
+                        "Crew Chief",
                         help="Select the main referee",
                         width="medium",
                         options=REFEREES
                     ),
-                    "Ref2_Name": st.column_config.SelectboxColumn(
-                        "Referee 2",
+                    "ref2": st.column_config.SelectboxColumn(
+                        "Umpire",
                         help="Select the secondary referee",
                         width="medium",
                         options=REFEREES
                     ),
-                    "Mentor_Name": st.column_config.SelectboxColumn(
-                        "Mentor",
+                    "begeleiding": st.column_config.SelectboxColumn(
+                        "Observer",
                         help="Select the observing mentor",
                         width="medium",
                         options=MENTORS
