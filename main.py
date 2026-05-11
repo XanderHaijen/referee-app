@@ -8,7 +8,7 @@ st.title("Tournament Referee Portal")
 
 # 1. Connection to Google Sheets
 # Replace 'YOUR_SHEET_URL_HERE' with the link you copied
-url = "https://docs.google.com/spreadsheets/d/1V4IO4YVHkWUF-IyVLM1bGlTCCCvXigJ4/edit?gid=171698999#gid=171698999"
+url = "https://docs.google.com/spreadsheets/d/1V4IO4YVHkWUF-IyVLM1bGlTCCCvXigJ4/edit?usp=sharing&ouid=116787883560249891832&rtpof=true&sd=true"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # Fetch data
