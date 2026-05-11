@@ -94,29 +94,29 @@ elif menu == "Planner Portal 🔒":
         
         # 1. Reshape data to make checking easier (melt puts all names in one column)
         melted = edited_df.melt(
-            id_vars=['GameID', 'Time', 'Pitch'], 
-            value_vars=['Ref1_Name', 'Ref2_Name', 'Mentor_Name'], 
-            value_name='Name'
+            id_vars=['Datum', 'tijd', 'locatie'], 
+            value_vars=['ref1', 'ref2', 'begeleiding'], 
+            value_name='naam'
         )
         
         # 2. Remove empty assignments
-        melted = melted.dropna(subset=['Name'])
-        melted = melted[melted['Name'].str.strip() != '']
+        melted = melted.dropna(subset=['naam'])
+        melted = melted[melted['naam'].str.strip() != '']
         
         # 3. Find duplicates based on Time and Name
-        conflicts = melted[melted.duplicated(subset=['Time', 'Name'], keep=False)]
+        conflicts = melted[melted.duplicated(subset=['uur', 'naam'], keep=False)]
         
         if not conflicts.empty:
             st.error("⚠️ **SCHEDULE CONFLICT DETECTED!**")
             st.write("The following individuals are double-booked at the same time. Please fix the schedule above before saving.")
             
             # Format the output so the planner knows exactly where to look
-            for name, group in conflicts.groupby('Name'):
-                times = group['Time'].unique()
+            for name, group in conflicts.groupby('naam'):
+                times = group['tijd'].unique()
                 for t in times:
-                    conflict_games = group[group['Time'] == t]
+                    conflict_games = group[group['tijd'] == t]
                     if len(conflict_games) > 1:
-                        pitches = ", ".join(conflict_games['Pitch'].astype(str).tolist())
+                        pitches = ", ".join(conflict_games['locatie'].astype(str).tolist())
                         st.warning(f"**{name}** is scheduled for multiple games at **{t}** (Pitches: {pitches})")
             
             # Disable the save functionality if there's a conflict
