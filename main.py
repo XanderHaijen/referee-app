@@ -12,7 +12,7 @@ url = "https://docs.google.com/spreadsheets/d/1V4IO4YVHkWUF-IyVLM1bGlTCCCvXigJ4/
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # Fetch data
-df = conn.read(spreadsheet=url, worksheet="Games")
+df = conn.read(spreadsheet=url, worksheet="Planning")
 
 # 2. Sidebar Navigation
 menu = st.sidebar.radio("Navigation", ["My Schedule", "Full Tournament Overview"])
