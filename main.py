@@ -94,7 +94,7 @@ elif menu == "Planner Portal 🔒":
         
         # 1. Reshape data to make checking easier (melt puts all names in one column)
         melted = edited_df.melt(
-            id_vars=['Datum', 'tijd', 'locatie'], 
+            id_vars=['Datum', 'uur', 'locatie'], 
             value_vars=['ref1', 'ref2', 'begeleiding'], 
             value_name='naam'
         )
@@ -112,9 +112,9 @@ elif menu == "Planner Portal 🔒":
             
             # Format the output so the planner knows exactly where to look
             for name, group in conflicts.groupby('naam'):
-                times = group['tijd'].unique()
+                times = group['uur'].unique()
                 for t in times:
-                    conflict_games = group[group['tijd'] == t]
+                    conflict_games = group[group['uur'] == t]
                     if len(conflict_games) > 1:
                         pitches = ", ".join(conflict_games['locatie'].astype(str).tolist())
                         st.warning(f"**{name}** is scheduled for multiple games at **{t}** (Pitches: {pitches})")
