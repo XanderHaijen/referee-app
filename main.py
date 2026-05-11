@@ -14,9 +14,12 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # Fetch data
 df = conn.read(spreadsheet=url, worksheet="Games")
 
+MENTORS = ["Xander Haijen", "Marie Gubel", "James Kasapoglu"]
+REFEREES = ["Arthur Franckx", "Elyas Ludwig", "Ward Stevens", "Mattias Gernay",
+            "Marie Gubel", "Arthur Schalm", "Axel Callebaut", "James Kasapoglu", "Dylan Marcon", "Dzan Erden",
+            "Yusuf Samil", "Samir Dehni", "Marcus Roels", "Emilio Verzwyvel"]
 # 2. Sidebar Navigation
-menu = st.sidebar.radio("Navigation", ["My Schedule", "Full Tournament Overview"])
-
+menu = st.sidebar.radio("Navigation", ["My Schedule", "Full Tournament Overview", "Planner Portal 🔒"])
 if menu == "Full Tournament Overview":
     st.header("Global Game Schedule")
     st.info("This view is read-only for all participants.")
@@ -43,6 +46,58 @@ elif menu == "My Schedule":
             st.warning("No games found. Please check your spelling and ensure it matches the schedule.")
     else:
         st.write("Please enter your name in the box above to filter the schedule.")
+
+elif menu == "Planner Portal 🔒":
+    st.header("⚙️ Tournament Planner Portal")
+    
+    # 1. Simple Security
+    password = st.text_input("Enter Planner Password:", type="password")
+    
+    if password == "admin2026": # Change to a secure password
+        st.success("Access Granted. You are now in edit mode.")
+        st.info("Make your assignments in the table below and click 'Save Changes to Server' when done.")
+        
+        # 2. Configure the Interactive Data Editor
+        with st.form("assignment_form"):
+            edited_df = st.data_editor(
+                df,
+                use_container_width=True,
+                hide_index=True,
+                # Make Game details read-only, but allow editing of Referees
+                disabled=["GameID", "Time", "Pitch", "HomeTeam", "AwayTeam"],
+                column_config={
+                    "Ref1_Name": st.column_config.SelectboxColumn(
+                        "Referee 1",
+                        help="Select the main referee",
+                        width="medium",
+                        options=REFEREES
+                    ),
+                    "Ref2_Name": st.column_config.SelectboxColumn(
+                        "Referee 2",
+                        help="Select the secondary referee",
+                        width="medium",
+                        options=REFEREES
+                    ),
+                    "Mentor_Name": st.column_config.SelectboxColumn(
+                        "Mentor",
+                        help="Select the observing mentor",
+                        width="medium",
+                        options=MENTORS
+                    )
+                }
+            )
+            
+            # 3. The Save Button
+            submit_button = st.form_submit_button("💾 Save Changes to Server")
+            
+            if submit_button:
+                with st.spinner("Pushing updates to Google Sheets..."):
+                    # This single line pushes the edited dataframe back to your Google Sheet!
+                    conn.update(worksheet="Games", data=edited_df)
+                    # Clear the cache so the app immediately shows the new data
+                    st.cache_data.clear()
+                    st.success("Schedule successfully updated!")
+                    st.rerun() # Refresh the app to show changes
 
 # 3. Simple Admin Access
 with st.sidebar.expander("Admin"):
