@@ -90,14 +90,51 @@ elif menu == "Planner Portal 🔒":
             # 3. The Save Button
             submit_button = st.form_submit_button("💾 Save Changes to Server")
             
-            if submit_button:
+# We run this check dynamically based on the current state of the editor
+        
+        # 1. Reshape data to make checking easier (melt puts all names in one column)
+        melted = edited_df.melt(
+            id_vars=['GameID', 'Time', 'Pitch'], 
+            value_vars=['Ref1_Name', 'Ref2_Name', 'Mentor_Name'], 
+            value_name='Name'
+        )
+        
+        # 2. Remove empty assignments
+        melted = melted.dropna(subset=['Name'])
+        melted = melted[melted['Name'].str.strip() != '']
+        
+        # 3. Find duplicates based on Time and Name
+        conflicts = melted[melted.duplicated(subset=['Time', 'Name'], keep=False)]
+        
+        if not conflicts.empty:
+            st.error("⚠️ **SCHEDULE CONFLICT DETECTED!**")
+            st.write("The following individuals are double-booked at the same time. Please fix the schedule above before saving.")
+            
+            # Format the output so the planner knows exactly where to look
+            for name, group in conflicts.groupby('Name'):
+                times = group['Time'].unique()
+                for t in times:
+                    conflict_games = group[group['Time'] == t]
+                    if len(conflict_games) > 1:
+                        pitches = ", ".join(conflict_games['Pitch'].astype(str).tolist())
+                        st.warning(f"**{name}** is scheduled for multiple games at **{t}** (Pitches: {pitches})")
+            
+            # Disable the save functionality if there's a conflict
+            can_save = False
+        else:
+            st.success("✅ No scheduling conflicts detected.")
+            can_save = True
+
+        # --- SAVE LOGIC ---
+        if submit_button:
+            if can_save:
                 with st.spinner("Pushing updates to Google Sheets..."):
-                    # This single line pushes the edited dataframe back to your Google Sheet!
-                    conn.update(spreadsheet=url, worksheet="Games", data=edited_df)
-                    # Clear the cache so the app immediately shows the new data
+                    conn.update(worksheet="Games", data=edited_df)
                     st.cache_data.clear()
                     st.success("Schedule successfully updated!")
-                    st.rerun() # Refresh the app to show changes
+                    st.rerun()
+            else:
+                st.error("Cannot save to the server while conflicts exist. Please resolve them first.")
 
 # 3. Simple Admin Access
 with st.sidebar.expander("Admin"):
