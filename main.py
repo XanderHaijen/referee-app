@@ -1,5 +1,5 @@
 import streamlit as st
-from lib.streamlit_gsheets import GSheetsConnection
+from streamlit_gsheets import GSheetsConnection
 
 # Page Configuration
 st.set_page_config(page_title="RefPlan 2026", layout="wide")
