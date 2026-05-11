@@ -41,7 +41,7 @@ elif menu == "My Schedule":
         
         if not my_games.empty:
             st.success(f"Found {len(my_games)} assignments for {user_name.title()}.")
-            st.table(my_games[['Datum', 'uur', 'locatie', 'wedstrijd', 'ref1', 'ref2', 'begeleiding']])
+            st.table(my_games[['Datum', 'uur', 'ploeg', 'locatie', 'wedstrijd', 'ref1', 'ref2', 'begeleiding']])
         else:
             st.warning("No games found. Please check your spelling and ensure it matches the schedule.")
     else:
@@ -64,7 +64,7 @@ elif menu == "Planner Portal 🔒":
                 use_container_width=True,
                 hide_index=True,
                 # Make Game details read-only, but allow editing of Referees
-                disabled=['Datum', 'uur', 'locatie', 'wedstrijd'],
+                disabled=['Datum', 'uur','ploeg', 'locatie', 'wedstrijd'],
                 column_config={
                     "ref1": st.column_config.SelectboxColumn(
                         "Crew Chief",
