@@ -93,7 +93,7 @@ elif menu == "Planner Portal 🔒":
             if submit_button:
                 with st.spinner("Pushing updates to Google Sheets..."):
                     # This single line pushes the edited dataframe back to your Google Sheet!
-                    conn.update(worksheet="Games", data=edited_df)
+                    conn.update(spreadsheet=url, worksheet="Games", data=edited_df)
                     # Clear the cache so the app immediately shows the new data
                     st.cache_data.clear()
                     st.success("Schedule successfully updated!")
