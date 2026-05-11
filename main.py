@@ -7,12 +7,10 @@ st.set_page_config(page_title="RefPlan 2026", layout="wide")
 st.title("Tournament Referee Portal")
 
 # 1. Connection to Google Sheets
-url = "https://docs.google.com/spreadsheets/d/1ZxbRCWrZ5BVI2JjBZlj8B73v2OAHkRkUtYvjSNAp9Ec/edit?usp=sharing"
+# url = "https://docs.google.com/spreadsheets/d/1ZxbRCWrZ5BVI2JjBZlj8B73v2OAHkRkUtYvjSNAp9Ec/edit?usp=sharing"
 conn = st.connection("gsheets", type=GSheetsConnection)
-
 # Fetch data
-df = conn.read(spreadsheet=url, worksheet="Games") # Ensure the worksheet name matches your sheet
-
+df = conn.read(spreadsheet="Toernooiplanning", worksheet="Games")
 # 2. Sidebar Navigation
 menu = st.sidebar.radio("Navigation", ["My Schedule", "Full Tournament Overview"])
 
