@@ -4,7 +4,7 @@ from streamlit_gsheets import GSheetsConnection
 # Page Configuration
 st.set_page_config(page_title="RefPlan 2026", layout="wide")
 
-st.title("Tournament Referee Portal")
+st.title("Toernooischeidsrechter Portal")
 
 # 1. Connection to Google Sheets
 # Replace 'YOUR_SHEET_URL_HERE' with the link you copied
@@ -19,17 +19,17 @@ REFEREES = ["Arthur Franckx", "Elyas Ludwig", "Ward Stevens", "Mattias Gernay",
             "Marie Gubel", "Arthur Schalm", "Axel Callebaut", "James Kasapoglu", "Dylan Marcon", "Dzan Erden",
             "Yusuf Samil", "Samir Dehni", "Marcus Roels", "Emilio Verzwyvel"]
 # 2. Sidebar Navigation
-menu = st.sidebar.radio("Navigation", ["My Schedule", "Full Tournament Overview", "Planner Portal 🔒"])
-if menu == "Full Tournament Overview":
-    st.header("Global Game Schedule")
-    st.info("This view is read-only for all participants.")
+menu = st.sidebar.radio("Navigatie", ["Mijn Schema", "Volledig Toernooioverzicht", "Plannersportal 🔒"])
+if menu == "Volledig Toernooioverzicht":
+    st.header("Volledig Wedstrijdschema")
+    st.info("Dit beeld is alleen-lezen voor alle deelnemers.")
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-elif menu == "My Schedule":
-    st.header("Personal Assignment Finder")
+elif menu == "Mijn Schema":
+    st.header("Persoonlijke Toewijzingszoekers")
     
     # Changed from email to name
-    user_name = st.text_input("Enter your full name to see your games:").strip().lower()
+    user_name = st.text_input("Voer uw volledige naam in om uw wedstrijden te zien:").strip().lower()
     
     if user_name:
         # Filter logic: Convert columns to string (to avoid errors on empty cells) and lowercase them
@@ -40,22 +40,22 @@ elif menu == "My Schedule":
         ]
         
         if not my_games.empty:
-            st.success(f"Found {len(my_games)} assignments for {user_name.title()}.")
+            st.success(f"Gevonden {len(my_games)} toewijzingen voor {user_name.title()}.")
             st.table(my_games[['Datum', 'uur', 'ploeg', 'locatie', 'wedstrijd', 'ref1', 'ref2', 'begeleiding']])
         else:
-            st.warning("No games found. Please check your spelling and ensure it matches the schedule.")
+            st.warning("Geen wedstrijden gevonden. Controleer alstublieft uw spelling en zorg dat deze overeenkomt met het schema.")
     else:
-        st.write("Please enter your name in the box above to filter the schedule.")
+        st.write("Voer alstublieft uw naam in het vak hierboven in om het schema te filteren.")
 
-elif menu == "Planner Portal 🔒":
-    st.header("⚙️ Tournament Planner Portal")
+elif menu == "Plannersportal 🔒":
+    st.header("⚙️ Toernooiplannersportal")
     
     # 1. Simple Security
-    password = st.text_input("Enter Planner Password:", type="password")
+    password = st.text_input("Voer plannerwachtwoord in:", type="password")
     
     if password == "admin2026": # Change to a secure password
-        st.success("Access Granted. You are now in edit mode.")
-        st.info("Make your assignments in the table below and click 'Save Changes to Server' when done.")
+        st.success("Toegang verleend. U bent nu in bewerkingsmodus.")
+        st.info("Maak uw toewijzingen in de onderstaande tabel en klik op 'Wijzigingen op Server opslaan' wanneer u klaar bent.")
         
         # 2. Configure the Interactive Data Editor
         with st.form("assignment_form"):
@@ -67,20 +67,20 @@ elif menu == "Planner Portal 🔒":
                 disabled=['Datum', 'uur','ploeg', 'locatie', 'wedstrijd'],
                 column_config={
                     "ref1": st.column_config.SelectboxColumn(
-                        "Crew Chief",
-                        help="Select the main referee",
+                        "Scheidsrechter",
+                        help="Selecteer de crew cheif",
                         width="medium",
                         options=REFEREES
                     ),
                     "ref2": st.column_config.SelectboxColumn(
-                        "Umpire",
-                        help="Select the secondary referee",
+                        "Assistent",
+                        help="Selecteer de umpire",
                         width="medium",
                         options=REFEREES
                     ),
                     "begeleiding": st.column_config.SelectboxColumn(
-                        "Observer",
-                        help="Select the observing mentor",
+                        "Waarnemer",
+                        help="Selecteer de begeleider",
                         width="medium",
                         options=MENTORS
                     )
@@ -88,7 +88,7 @@ elif menu == "Planner Portal 🔒":
             )
             
             # 3. The Save Button
-            submit_button = st.form_submit_button("💾 Save Changes to Server")
+            submit_button = st.form_submit_button("💾 Wijzigingen op Server opslaan")
             
 # We run this check dynamically based on the current state of the editor
         
@@ -107,8 +107,8 @@ elif menu == "Planner Portal 🔒":
         conflicts = melted[melted.duplicated(subset=['uur', 'naam'], keep=False)]
         
         if not conflicts.empty:
-            st.error("⚠️ **SCHEDULE CONFLICT DETECTED!**")
-            st.write("The following individuals are double-booked at the same time. Please fix the schedule above before saving.")
+            st.error("⚠️ **PLANNINGSCONFLICT GEDETECTEERD!**")
+            st.write("De volgende personen zijn op hetzelfde moment dubbel geboekt. Corrigeer alstublieft het schema hierboven voordat u opslaat.")
             
             # Format the output so the planner knows exactly where to look
             for name, group in conflicts.groupby('naam'):
@@ -117,28 +117,28 @@ elif menu == "Planner Portal 🔒":
                     conflict_games = group[group['uur'] == t]
                     if len(conflict_games) > 1:
                         pitches = ", ".join(conflict_games['locatie'].astype(str).tolist())
-                        st.warning(f"**{name}** is scheduled for multiple games at **{t}** (Pitches: {pitches})")
+                        st.warning(f"**{name}** is ingepland voor meerdere wedstrijden om **{t}** (Velden: {pitches})")
             
             # Disable the save functionality if there's a conflict
             can_save = False
         else:
-            st.success("✅ No scheduling conflicts detected.")
+            st.success("✅ Geen planningsconflicten gedetecteerd.")
             can_save = True
 
         # --- SAVE LOGIC ---
         if submit_button:
             if can_save:
-                with st.spinner("Pushing updates to Google Sheets..."):
+                with st.spinner("Updates naar Google Sheets pushen..."):
                     conn.update(worksheet="Games", data=edited_df)
                     st.cache_data.clear()
-                    st.success("Schedule successfully updated!")
+                    st.success("Schema succesvol bijgewerkt!")
                     st.rerun()
             else:
-                st.error("Cannot save to the server while conflicts exist. Please resolve them first.")
+                st.error("Kan niet op de server opslaan terwijl conflicten bestaan. Los deze alstublieft eerst op.")
 
 # 3. Simple Admin Access
-with st.sidebar.expander("Admin"):
-    pw = st.text_input("Admin Password", type="password")
+with st.sidebar.expander("Beheer"):
+    pw = st.text_input("Beheerwachtwoord", type="password")
     if pw == "referee2026": 
-        st.write("Access Granted")
-        st.download_button("Download Schedule as CSV", df.to_csv(), "schedule.csv")
+        st.write("Toegang verleend")
+        st.download_button("Schema als CSV downloaden", df.to_csv(), "schedule.csv")
