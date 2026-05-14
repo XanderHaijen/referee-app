@@ -96,6 +96,7 @@ elif menu == "Plannersportal 🔒":
     password = st.text_input("Voer plannerwachtwoord in:", type="password")
     
     if password == "admin2026": # Change to a secure password
+        st.cache_data.clear()  # Clear cache to ensure fresh data
         st.success("Toegang verleend. U bent nu in bewerkingsmodus.")
         st.info("Maak uw toewijzingen in de onderstaande tabel en klik op 'Wijzigingen op Server opslaan' wanneer u klaar bent.")
         
