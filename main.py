@@ -214,16 +214,8 @@ elif menu == "Plannersportal 🔒":
                     )
                 }
             )
-            conflicts = find_schedule_conflicts(edited_df)
-            render_schedule_conflicts(conflicts)
-            
-            # Only allow saving if no conflicts detected
             st.markdown("---")
-            submit_button = st.form_submit_button(
-                "💾 Wijzigingen op Server opslaan",
-                disabled=bool(conflicts),
-                help="Opslaan is gedeactiveerd vanwege planningsconflicten. Los deze op en probeer het opnieuw." if conflicts else "Klik om wijzigingen op te slaan"
-            )
+            submit_button = st.form_submit_button("💾 Wijzigingen op Server opslaan")
             
         # --- SAVE LOGIC ---
         if submit_button:
