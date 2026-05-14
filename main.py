@@ -153,40 +153,45 @@ elif menu == "Plannersportal 🔒":
                 st.error(f"Kon prijzen niet opslaan: {e}")
 
 # We run this check dynamically based on the current state of the editor
+        can_save = True  # Initialize as True, set to False if conflicts found
         
-        # 1. Reshape data to make checking easier (melt puts all names in one column)
-        melted = edited_df.melt(
-            id_vars=['Datum', 'uur', 'veld'], 
-            value_vars=['ref1', 'ref2', 'begeleiding'], 
-            value_name='naam'
-        )
-        
-        # 2. Remove empty assignments
-        melted = melted.dropna(subset=['naam'])
-        melted = melted[melted['naam'].str.strip() != '']
-        
-        # 3. Find duplicates based on Date, Time, and Name
-        conflicts = melted[melted.duplicated(subset=['Datum', 'uur', 'naam'], keep=False)]
-        
-        if not conflicts.empty:
-            st.error("⚠️ **PLANNINGSCONFLICT GEDETECTEERD!**")
-            st.write("De volgende personen zijn op dezelfde datum en tijd dubbel geboekt. Corrigeer alstublieft het schema hierboven voordat u opslaat.")
+        try:
+            # 1. Reshape data to make checking easier (melt puts all names in one column)
+            melted = edited_df.melt(
+                id_vars=['Datum', 'uur', 'veld'], 
+                value_vars=['ref1', 'ref2', 'begeleiding'], 
+                value_name='naam'
+            )
             
-            # Format the output so the planner knows exactly where to look
-            for name, group in conflicts.groupby('naam'):
-                times = group['uur'].unique()
-                for t in times:
-                    conflict_games = group[group['uur'] == t]
-                    if len(conflict_games) > 1:
-                        date = ", ".join(conflict_games['Datum'].astype(str).tolist()).iloc[0]
-                        pitches = ", ".join(conflict_games['veld'].astype(str).tolist())
-                        st.warning(f"**{name}** is ingepland voor meerdere wedstrijden op **{date}** om **{t}** (Velden: {pitches})")
+            # 2. Remove empty assignments
+            melted = melted.dropna(subset=['naam'])
+            melted = melted[melted['naam'].str.strip() != '']
             
-            # Disable the save functionality if there's a conflict
-            can_save = False
-        else:
-            st.success("✅ Geen planningsconflicten gedetecteerd.")
-            can_save = True
+            # 3. Find duplicates based on Date, Time, and Name
+            conflicts = melted[melted.duplicated(subset=['Datum', 'uur', 'naam'], keep=False)]
+            
+            if not conflicts.empty:
+                st.error("⚠️ **PLANNINGSCONFLICT GEDETECTEERD!**")
+                st.write("De volgende personen zijn op dezelfde datum en tijd dubbel geboekt. Corrigeer alstublieft het schema hierboven voordat u opslaat.")
+                
+                # Format the output so the planner knows exactly where to look
+                for name, group in conflicts.groupby('naam'):
+                    times = group['uur'].unique()
+                    for t in times:
+                        conflict_games = group[group['uur'] == t]
+                        if len(conflict_games) > 1:
+                            date = conflict_games['Datum'].iloc[0]
+                            pitches = ", ".join(conflict_games['veld'].astype(str).unique().tolist())
+                            st.warning(f"**{name}** is ingepland voor meerdere wedstrijden op **{date}** om **{t}** (Velden: {pitches})")
+                
+                # Disable the save functionality if there's a conflict
+                can_save = False
+            else:
+                st.success("✅ Geen planningsconflicten gedetecteerd.")
+                can_save = True
+        except Exception as e:
+            st.error(f"Fout bij conflict detection: {e}")
+            can_save = False  # Default to False on error to prevent accidental saves
 
         # --- SAVE LOGIC ---
         if submit_button:
