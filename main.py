@@ -18,7 +18,7 @@ df = conn.read(spreadsheet=url, worksheet="Games")
 
 MENTORS = ["Xander Haijen", "Marie Gubel", "James Kasapoglu"]
 INTERNAL_REFEREES = ["Arthur Franckx", "Elyas Ludwig", "Ward Stevens", "Mattias Gernay",
-            "Marie Gubel", "Arthur Schalm", "Axel Callebaut", "James Kasapoglu"]
+            "Marie Gubel", "Arthur Schalm", "Axel Callebaut", "James Kasapoglu", "Xander Haijen"]
 EXTERNAL_REFEREES = ["Dylan Marcon", "Dzan Erden",
             "Yusuf Samil", "Samir Dehni", "Marcus Roels", "Emilio Verzwyvel"]
 
