@@ -19,7 +19,7 @@ REFEREES = ["Arthur Franckx", "Elyas Ludwig", "Ward Stevens", "Mattias Gernay",
             "Marie Gubel", "Arthur Schalm", "Axel Callebaut", "James Kasapoglu", "Dylan Marcon", "Dzan Erden",
             "Yusuf Samil", "Samir Dehni", "Marcus Roels", "Emilio Verzwyvel"]
 # 2. Sidebar Navigation
-menu = st.sidebar.radio("Navigatie", ["Mijn Schema", "Volledig Toernooioverzicht", "Plannersportal 🔒"])
+menu = st.sidebar.radio("Navigatie", ["Mijn Schema", "Volledig Toernooioverzicht"])
 if menu == "Volledig Toernooioverzicht":
     st.header("Volledig Wedstrijdschema")
     st.info("Dit beeld is alleen-lezen voor alle deelnemers.")
@@ -47,17 +47,16 @@ elif menu == "Mijn Schema":
     else:
         st.write("Voer alstublieft uw naam in het vak hierboven in om het schema te filteren.")
 
-elif menu == "Plannersportal 🔒":
-    st.header("⚙️ Toernooiplannersportal")
-    
-    # 1. Simple Security
-    password = st.text_input("Voer plannerwachtwoord in:", type="password")
-    
-    if password == "admin2026": # Change to a secure password
-        st.success("Toegang verleend. U bent nu in bewerkingsmodus.")
+# 3. Sidebar Admin Access
+with st.sidebar.expander("Beheer"):
+    pw = st.text_input("Wachtwoord:", type="password")
+    if pw == "referee2026":
+        st.success("Toegang verleend.")
+        st.divider()
+        st.subheader("⚙️ Toernooiplannersportal")
         st.info("Maak uw toewijzingen in de onderstaande tabel en klik op 'Wijzigingen op Server opslaan' wanneer u klaar bent.")
         
-        # 2. Configure the Interactive Data Editor
+        # Configure the Interactive Data Editor
         with st.form("assignment_form"):
             edited_df = st.data_editor(
                 df,
@@ -87,23 +86,23 @@ elif menu == "Plannersportal 🔒":
                 }
             )
             
-            # 3. The Save Button
+            # The Save Button
             submit_button = st.form_submit_button("💾 Wijzigingen op Server opslaan")
             
-# We run this check dynamically based on the current state of the editor
+        # Check for conflicts dynamically based on the current state of the editor
         
-        # 1. Reshape data to make checking easier (melt puts all names in one column)
+        # Reshape data to make checking easier (melt puts all names in one column)
         melted = edited_df.melt(
             id_vars=['Datum', 'uur', 'locatie'], 
             value_vars=['ref1', 'ref2', 'begeleiding'], 
             value_name='naam'
         )
         
-        # 2. Remove empty assignments
+        # Remove empty assignments
         melted = melted.dropna(subset=['naam'])
         melted = melted[melted['naam'].str.strip() != '']
         
-        # 3. Find duplicates based on Time and Name
+        # Find duplicates based on Time and Name
         conflicts = melted[melted.duplicated(subset=['uur', 'naam'], keep=False)]
         
         if not conflicts.empty:
@@ -125,7 +124,7 @@ elif menu == "Plannersportal 🔒":
             st.success("✅ Geen planningsconflicten gedetecteerd.")
             can_save = True
 
-        # --- SAVE LOGIC ---
+        # SAVE LOGIC
         if submit_button:
             if can_save:
                 with st.spinner("Updates naar Google Sheets pushen..."):
@@ -135,10 +134,7 @@ elif menu == "Plannersportal 🔒":
                     st.rerun()
             else:
                 st.error("Kan niet op de server opslaan terwijl conflicten bestaan. Los deze alstublieft eerst op.")
-
-# 3. Simple Admin Access
-with st.sidebar.expander("Beheer"):
-    pw = st.text_input("Beheerwachtwoord", type="password")
-    if pw == "referee2026": 
-        st.write("Toegang verleend")
+        
+        st.divider()
+        st.subheader("📥 Download")
         st.download_button("Schema als CSV downloaden", df.to_csv(), "schedule.csv")
