@@ -26,6 +26,85 @@ EXTERNAL_REFEREES = ["Dylan Marcon", "Dzan Erden",
 REFEREES = INTERNAL_REFEREES + EXTERNAL_REFEREES
 
 
+def normalize_schedule_value(value):
+    if pd.isna(value):
+        return ""
+    return str(value).strip()
+
+
+def find_schedule_conflicts(schedule_df):
+    required_columns = ["Datum", "uur", "veld", "ref1", "ref2", "begeleiding"]
+    missing_columns = [column for column in required_columns if column not in schedule_df.columns]
+    if missing_columns:
+        raise KeyError(f"Ontbrekende kolommen voor conflictcontrole: {', '.join(missing_columns)}")
+
+    assignments = schedule_df[required_columns].copy().reset_index(drop=True)
+    assignments["_game_row"] = assignments.index
+
+    melted = assignments.melt(
+        id_vars=["_game_row", "Datum", "uur", "veld"],
+        value_vars=["ref1", "ref2", "begeleiding"],
+        var_name="rol",
+        value_name="naam",
+    )
+
+    melted["naam_norm"] = melted["naam"].map(normalize_schedule_value).str.lower()
+    melted["datum_norm"] = pd.to_datetime(melted["Datum"], errors="coerce").dt.strftime("%Y-%m-%d")
+    melted["datum_norm"] = melted["datum_norm"].fillna(melted["Datum"].map(normalize_schedule_value))
+    melted["uur_norm"] = melted["uur"].map(normalize_schedule_value).str.lower()
+    melted["veld_norm"] = melted["veld"].map(normalize_schedule_value)
+
+    valid_assignments = melted[melted["naam_norm"] != ""].copy()
+    if valid_assignments.empty:
+        return []
+
+    conflict_rows = valid_assignments[
+        valid_assignments.duplicated(subset=["datum_norm", "uur_norm", "naam_norm"], keep=False)
+    ].copy()
+
+    if conflict_rows.empty:
+        return []
+
+    conflicts = []
+    for (_, date_norm, time_norm), group in conflict_rows.groupby(["naam_norm", "datum_norm", "uur_norm"], sort=False):
+        display_name = normalize_schedule_value(group["naam"].iloc[0])
+        conflict_fields = group["veld_norm"].drop_duplicates().tolist()
+        conflict_roles = group["rol"].drop_duplicates().tolist()
+        conflicts.append(
+            {
+                "name": display_name,
+                "date": date_norm,
+                "time": time_norm,
+                "fields": conflict_fields,
+                "roles": conflict_roles,
+                "count": len(group),
+            }
+        )
+
+    return conflicts
+
+
+def render_schedule_conflicts(conflicts):
+    if not conflicts:
+        st.success("✅ Geen planningsconflicten gedetecteerd - opslaan is ingeschakeld.")
+        return
+
+    st.error("⚠️ **PLANNINGSCONFLICTEN GEDETECTEERD!** Het opslaan is gedeactiveerd.")
+    st.write("De volgende personen zijn meerdere keren ingepland op dezelfde datum en tijd:")
+
+    for conflict in conflicts:
+        fields = ", ".join(conflict["fields"])
+        roles = ", ".join(conflict["roles"])
+        st.warning(
+            f"**{conflict['name']}** is op **{conflict['date']}** om **{conflict['time']}** "
+            f"meerdere keren ingepland (Velden: {fields}; Rollen: {roles}; Aantal: {conflict['count']})"
+        )
+
+
+def prepare_sheet_update(dataframe):
+    return dataframe.copy().reset_index(drop=True)
+
+
 # 2. Sidebar Navigation
 menu = st.sidebar.radio("Navigatie", ["Mijn Schema", "Volledig Toernooioverzicht", "Plannersportal 🔒"])
 if menu == "Volledig Toernooioverzicht":
@@ -100,6 +179,8 @@ elif menu == "Plannersportal 🔒":
         st.success("Toegang verleend. U bent nu in bewerkingsmodus.")
         st.info("Maak uw toewijzingen in de onderstaande tabel en klik op 'Wijzigingen op Server opslaan' wanneer u klaar bent.")
         
+        pricing_df = conn.read(spreadsheet=url, worksheet="Pricing")
+
         # 2. Configure the Interactive Data Editor
         with st.form("assignment_form"):
             edited_df = st.data_editor(
@@ -129,71 +210,32 @@ elif menu == "Plannersportal 🔒":
                     )
                 }
             )
-            
-            # Check for conflicts within the form context
-            st.markdown("---")
-            st.subheader("Conflictdetectie")
-            
-            has_conflicts = False
-            conflict_messages = []
-            
-            try:
-                # Melt the dataframe to find duplicate assignments
-                melted = edited_df.melt(
-                    id_vars=['Datum', 'uur', 'veld'], 
-                    value_vars=['ref1', 'ref2', 'begeleiding'], 
-                    value_name='naam'
-                )
-                
-                # Remove empty assignments
-                melted = melted.dropna(subset=['naam'])
-                melted = melted[melted['naam'].str.strip() != '']
-                melted = melted[melted['naam'].astype(str).str.strip() != '']
-                
-                # Find people assigned to multiple games at the same date and time
-                conflicts = melted[melted.duplicated(subset=['Datum', 'uur', 'naam'], keep=False)].copy()
-                
-                if not conflicts.empty:
-                    has_conflicts = True
-                    st.error("⚠️ **PLANNINGSCONFLICTEN GEDETECTEERD!** Het opslaan is gedeactiveerd.")
-                    
-                    # Show each conflict clearly
-                    for name in conflicts['naam'].unique():
-                        person_conflicts = conflicts[conflicts['naam'] == name]
-                        
-                        # Group by date and time
-                        for (date, time), group in person_conflicts.groupby(['Datum', 'uur']):
-                            if len(group) > 1:
-                                fields = ", ".join(group['veld'].astype(str).unique().tolist())
-                                st.warning(f"**{name}** is op **{date}** om **{time}** ingepland voor meerdere wedstrijden (Velden: {fields})")
-                else:
-                    st.success("✅ Geen planningsconflicten gedetecteerd - opslaan is ingeschakeld.")
-                    
-            except Exception as e:
-                has_conflicts = True  # Default to True (disabled) on error
-                st.error(f"Fout bij conflict detectie: {e}")
+            conflicts = find_schedule_conflicts(edited_df)
+            render_schedule_conflicts(conflicts)
             
             # Only allow saving if no conflicts detected
             st.markdown("---")
             submit_button = st.form_submit_button(
                 "💾 Wijzigingen op Server opslaan",
-                disabled=has_conflicts,
-                help="Opslaan is gedeactiveerd vanwege planningsconflicten. Los deze op en probeer het opnieuw." if has_conflicts else "Klik om wijzigingen op te slaan"
+                disabled=bool(conflicts),
+                help="Opslaan is gedeactiveerd vanwege planningsconflicten. Los deze op en probeer het opnieuw." if conflicts else "Klik om wijzigingen op te slaan"
             )
             
         # --- SAVE LOGIC ---
-        if submit_button and not has_conflicts:
-            with st.spinner("Updates naar Google Sheets pushen..."):
-                try:
-                    conn.update(spreadsheet=url, worksheet="Games", data=edited_df)
-                    st.cache_data.clear()
-                    st.success("Schema succesvol bijgewerkt!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Fout bij opslaan: {e}")
-            
-        # Pricing editor for planners (separate form)
-        pricing_df = conn.read(spreadsheet=url, worksheet="Pricing")
+        if submit_button:
+            conflicts_before_save = find_schedule_conflicts(edited_df)
+            if conflicts_before_save:
+                render_schedule_conflicts(conflicts_before_save)
+                st.error("Kan niet op de server opslaan terwijl conflicten bestaan. Los deze eerst op en probeer opnieuw.")
+            else:
+                with st.spinner("Updates naar Google Sheets pushen..."):
+                    try:
+                        conn.update(spreadsheet=url, worksheet="Games", data=prepare_sheet_update(edited_df))
+                        st.cache_data.clear()
+                        st.success("Schema succesvol bijgewerkt!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Fout bij opslaan: {e}")
 
         with st.form("pricing_form"):
             st.write("**Prijsinstellingen per divisie**")
@@ -206,7 +248,7 @@ elif menu == "Plannersportal 🔒":
 
         if pricing_submit:
             try:
-                conn.update(spreadsheet=url, worksheet="Pricing", data=edited_pricing)
+                conn.update(spreadsheet=url, worksheet="Pricing", data=prepare_sheet_update(edited_pricing))
                 st.success("Prijzen succesvol bijgewerkt op Google Sheets.")
                 st.cache_data.clear()
             except Exception as e:
