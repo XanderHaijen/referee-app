@@ -141,7 +141,7 @@ elif menu == "Plannersportal 🔒":
                 # Melt the dataframe to find duplicate assignments
                 melted = edited_df.melt(
                     id_vars=['Datum', 'uur', 'veld'], 
-                    value_vars=['Crew chief', 'Umpire', 'Begeleider'], 
+                    value_vars=['ref1', 'ref2', 'begeleiding'], 
                     value_name='naam'
                 )
                 
