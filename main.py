@@ -66,7 +66,7 @@ elif menu == "Mijn Schema":
 
             def _amount_for_row(row):
                 amt = 0.0
-                for role in ['ref1', 'ref2', 'begeleiding']:
+                for role in ['ref1', 'ref2']:
                     if str(row.get(role, '')).strip().lower() == user_name:
                         rate = get_rate_for_game(row.get('wedstrijd', ''), pricing_df, is_internal_user)
                         try:
@@ -76,11 +76,14 @@ elif menu == "Mijn Schema":
                 return amt
 
             my_games_calc = my_games.copy()
-            my_games_calc['Bedrag'] = my_games_calc.apply(_amount_for_row, axis=1)
+            # Numeric amount per game (mentors will get 0.0 because we only pay ref1/ref2)
+            my_games_calc['Bedrag_num'] = my_games_calc.apply(_amount_for_row, axis=1).round(2)
+            # Display column with euro formatting (keeps mentors visible as €0.00)
+            my_games_calc['Bedrag'] = my_games_calc['Bedrag_num'].apply(lambda x: f"€{x:.2f}")
             # Show per-game and total owed
             st.table(my_games_calc[['Datum', 'uur', 'divisie', 'veld', 'wedstrijd', 'ref1', 'ref2', 'begeleiding', 'Bedrag']])
-            total_owed = my_games_calc['Bedrag'].sum()
-            st.success(f"Totaal te ontvangen: €{total_owed:.2f}")
+            total_owed = my_games_calc['Bedrag_num'].sum()
+            st.success(f"Totaal te ontvangen wedstrijdvergoedingen: €{total_owed:.2f}")
         else:
             st.warning("Geen wedstrijden gevonden. Controleer alstublieft uw spelling en zorg dat deze overeenkomt met het schema.")
     else:
