@@ -109,19 +109,19 @@ elif menu == "Plannersportal 🔒":
                 disabled=['Datum', 'uur','divisie', 'veld', 'wedstrijd'],
                 column_config={
                     "ref1": st.column_config.SelectboxColumn(
-                        "Scheidsrechter",
-                        help="Selecteer de crew cheif",
+                        "Crew chief",
+                        help="Selecteer de crew chief",
                         width="medium",
                         options=REFEREES
                     ),
                     "ref2": st.column_config.SelectboxColumn(
-                        "Assistent",
+                        "Umpire",
                         help="Selecteer de umpire",
                         width="medium",
                         options=REFEREES
                     ),
                     "begeleiding": st.column_config.SelectboxColumn(
-                        "Waarnemer",
+                        "Begeleider",
                         help="Selecteer de begeleider",
                         width="medium",
                         options=MENTORS
@@ -146,7 +146,7 @@ elif menu == "Plannersportal 🔒":
 
         if pricing_submit:
             try:
-                conn.update(worksheet="Pricing", data=edited_pricing)
+                conn.update(spreadsheet=url, worksheet="Pricing", data=edited_pricing)
                 st.success("Prijzen succesvol bijgewerkt op Google Sheets.")
                 st.cache_data.clear()
             except Exception as e:
@@ -192,7 +192,7 @@ elif menu == "Plannersportal 🔒":
         if submit_button:
             if can_save:
                 with st.spinner("Updates naar Google Sheets pushen..."):
-                    conn.update(worksheet="Games", data=edited_df)
+                    conn.update(spreadsheet=url, worksheet="Games", data=edited_df)
                     st.cache_data.clear()
                     st.success("Schema succesvol bijgewerkt!")
                     st.rerun()
