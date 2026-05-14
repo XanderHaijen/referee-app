@@ -15,6 +15,10 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 # Fetch data
 df = conn.read(spreadsheet=url, worksheet="Games")
+editor_df = df.copy()
+for referee_column in ["ref1", "ref2", "begeleiding"]:
+    if referee_column in editor_df.columns:
+        editor_df[referee_column] = editor_df[referee_column].fillna("").astype(str)
 
 MENTORS = ["Xander Haijen", "Marie Gubel", "James Kasapoglu"]
 INTERNAL_REFEREES = ["Arthur Franckx", "Elyas Ludwig", "Ward Stevens", "Mattias Gernay",
@@ -49,7 +53,7 @@ def find_schedule_conflicts(schedule_df):
     )
 
     melted["naam_norm"] = melted["naam"].map(normalize_schedule_value).str.lower()
-    melted["datum_norm"] = pd.to_datetime(melted["Datum"], errors="coerce").dt.strftime("%Y-%m-%d")
+    melted["datum_norm"] = pd.to_datetime(melted["Datum"], errors="coerce", dayfirst=True).dt.strftime("%Y-%m-%d")
     melted["datum_norm"] = melted["datum_norm"].fillna(melted["Datum"].map(normalize_schedule_value))
     melted["uur_norm"] = melted["uur"].map(normalize_schedule_value).str.lower()
     melted["veld_norm"] = melted["veld"].map(normalize_schedule_value)
@@ -110,7 +114,7 @@ menu = st.sidebar.radio("Navigatie", ["Mijn Schema", "Volledig Toernooioverzicht
 if menu == "Volledig Toernooioverzicht":
     st.header("Volledig Wedstrijdschema")
     st.info("Dit beeld is alleen-lezen voor alle deelnemers.")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
 
 elif menu == "Mijn Schema":
     st.header("Persoonlijke Aanduidingen en Vergoedingen")
@@ -184,8 +188,8 @@ elif menu == "Plannersportal 🔒":
         # 2. Configure the Interactive Data Editor
         with st.form("assignment_form"):
             edited_df = st.data_editor(
-                df,
-                use_container_width=True,
+                editor_df,
+                width="stretch",
                 hide_index=True,
                 # Make Game details read-only, but allow editing of Referees
                 disabled=['Datum', 'uur','divisie', 'veld', 'wedstrijd'],
@@ -241,7 +245,7 @@ elif menu == "Plannersportal 🔒":
             st.write("**Prijsinstellingen per divisie**")
             edited_pricing = st.data_editor(
                 pricing_df,
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
             pricing_submit = st.form_submit_button("💾 Opslaan Prijzen")
