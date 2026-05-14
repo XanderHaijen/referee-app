@@ -41,7 +41,7 @@ elif menu == "Mijn Schema":
         
         if not my_games.empty:
             st.success(f"Gevonden {len(my_games)} toewijzingen voor {user_name.title()}.")
-            st.table(my_games[['Datum', 'uur', 'ploeg', 'locatie', 'wedstrijd', 'ref1', 'ref2', 'begeleiding']])
+            st.table(my_games[['Datum', 'uur', 'divisie', 'veld', 'wedstrijd', 'ref1', 'ref2', 'begeleiding']])
         else:
             st.warning("Geen wedstrijden gevonden. Controleer alstublieft uw spelling en zorg dat deze overeenkomt met het schema.")
     else:
@@ -64,7 +64,7 @@ elif menu == "Plannersportal 🔒":
                 use_container_width=True,
                 hide_index=True,
                 # Make Game details read-only, but allow editing of Referees
-                disabled=['Datum', 'uur','ploeg', 'locatie', 'wedstrijd'],
+                disabled=['Datum', 'uur','divisie', 'veld', 'wedstrijd'],
                 column_config={
                     "ref1": st.column_config.SelectboxColumn(
                         "Scheidsrechter",
@@ -94,7 +94,7 @@ elif menu == "Plannersportal 🔒":
         
         # 1. Reshape data to make checking easier (melt puts all names in one column)
         melted = edited_df.melt(
-            id_vars=['Datum', 'uur', 'locatie'], 
+            id_vars=['Datum', 'uur', 'veld'], 
             value_vars=['ref1', 'ref2', 'begeleiding'], 
             value_name='naam'
         )
@@ -116,9 +116,9 @@ elif menu == "Plannersportal 🔒":
                 for t in times:
                     conflict_games = group[group['uur'] == t]
                     if len(conflict_games) > 1:
-                        dates = ", ".join(conflict_games['Datum'].astype(str).tolist())
-                        pitches = ", ".join(conflict_games['locatie'].astype(str).tolist())
-                        st.warning(f"**{name}** is ingepland voor meerdere wedstrijden op **{dates}** om **{t}** (Velden: {pitches})")
+                        date = ", ".join(conflict_games['Datum'].astype(str).tolist()).iloc[0]
+                        pitches = ", ".join(conflict_games['veld'].astype(str).tolist())
+                        st.warning(f"**{name}** is ingepland voor meerdere wedstrijden op **{date}** om **{t}** (Velden: {pitches})")
             
             # Disable the save functionality if there's a conflict
             can_save = False
