@@ -34,7 +34,7 @@ if menu == "Volledig Toernooioverzicht":
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif menu == "Mijn Schema":
-    st.header("Persoonlijke Toewijzingszoekers")
+    st.header("Persoonlijke Aanduidingen en Vergoedingen")
     
     # Changed from email to name
     user_name = st.text_input("Voer uw volledige naam in om uw wedstrijden te zien:").strip().lower()
@@ -130,8 +130,67 @@ elif menu == "Plannersportal 🔒":
                 }
             )
             
-            # 3. The Save Button
-            submit_button = st.form_submit_button("💾 Wijzigingen op Server opslaan")
+            # Check for conflicts within the form context
+            st.markdown("---")
+            st.subheader("Conflictdetectie")
+            
+            has_conflicts = False
+            conflict_messages = []
+            
+            try:
+                # Melt the dataframe to find duplicate assignments
+                melted = edited_df.melt(
+                    id_vars=['Datum', 'uur', 'veld'], 
+                    value_vars=['ref1', 'ref2', 'begeleiding'], 
+                    value_name='naam'
+                )
+                
+                # Remove empty assignments
+                melted = melted.dropna(subset=['naam'])
+                melted = melted[melted['naam'].str.strip() != '']
+                melted = melted[melted['naam'].astype(str).str.strip() != '']
+                
+                # Find people assigned to multiple games at the same date and time
+                conflicts = melted[melted.duplicated(subset=['Datum', 'uur', 'naam'], keep=False)].copy()
+                
+                if not conflicts.empty:
+                    has_conflicts = True
+                    st.error("⚠️ **PLANNINGSCONFLICTEN GEDETECTEERD!** Het opslaan is gedeactiveerd.")
+                    
+                    # Show each conflict clearly
+                    for name in conflicts['naam'].unique():
+                        person_conflicts = conflicts[conflicts['naam'] == name]
+                        
+                        # Group by date and time
+                        for (date, time), group in person_conflicts.groupby(['Datum', 'uur']):
+                            if len(group) > 1:
+                                fields = ", ".join(group['veld'].astype(str).unique().tolist())
+                                st.warning(f"**{name}** is op **{date}** om **{time}** ingepland voor meerdere wedstrijden (Velden: {fields})")
+                else:
+                    st.success("✅ Geen planningsconflicten gedetecteerd - opslaan is ingeschakeld.")
+                    
+            except Exception as e:
+                has_conflicts = True  # Default to True (disabled) on error
+                st.error(f"Fout bij conflict detectie: {e}")
+            
+            # Only allow saving if no conflicts detected
+            st.markdown("---")
+            submit_button = st.form_submit_button(
+                "💾 Wijzigingen op Server opslaan",
+                disabled=has_conflicts,
+                help="Opslaan is gedeactiveerd vanwege planningsconflicten. Los deze op en probeer het opnieuw." if has_conflicts else "Klik om wijzigingen op te slaan"
+            )
+            
+        # --- SAVE LOGIC ---
+        if submit_button and not has_conflicts:
+            with st.spinner("Updates naar Google Sheets pushen..."):
+                try:
+                    conn.update(spreadsheet=url, worksheet="Games", data=edited_df)
+                    st.cache_data.clear()
+                    st.success("Schema succesvol bijgewerkt!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Fout bij opslaan: {e}")
             
         # Pricing editor for planners (separate form)
         pricing_df = conn.read(spreadsheet=url, worksheet="Pricing")
@@ -152,58 +211,6 @@ elif menu == "Plannersportal 🔒":
                 st.cache_data.clear()
             except Exception as e:
                 st.error(f"Kon prijzen niet opslaan: {e}")
-
-# We run this check dynamically based on the current state of the editor
-        can_save = True  # Initialize as True, set to False if conflicts found
-        
-        try:
-            # 1. Reshape data to make checking easier (melt puts all names in one column)
-            melted = edited_df.melt(
-                id_vars=['Datum', 'uur', 'veld'], 
-                value_vars=['ref1', 'ref2', 'begeleiding'], 
-                value_name='naam'
-            )
-            
-            # 2. Remove empty assignments
-            melted = melted.dropna(subset=['naam'])
-            melted = melted[melted['naam'].str.strip() != '']
-            
-            # 3. Find duplicates based on Date, Time, and Name
-            conflicts = melted[melted.duplicated(subset=['Datum', 'uur', 'naam'], keep=False)]
-            
-            if not conflicts.empty:
-                st.error("⚠️ **PLANNINGSCONFLICT GEDETECTEERD!**")
-                st.write("De volgende personen zijn op dezelfde datum en tijd dubbel geboekt. Corrigeer alstublieft het schema hierboven voordat u opslaat.")
-                
-                # Format the output so the planner knows exactly where to look
-                for name, group in conflicts.groupby('naam'):
-                    times = group['uur'].unique()
-                    for t in times:
-                        conflict_games = group[group['uur'] == t]
-                        if len(conflict_games) > 1:
-                            date = conflict_games['Datum'].iloc[0]
-                            pitches = ", ".join(conflict_games['veld'].astype(str).unique().tolist())
-                            st.warning(f"**{name}** is ingepland voor meerdere wedstrijden op **{date}** om **{t}** (Velden: {pitches})")
-                
-                # Disable the save functionality if there's a conflict
-                can_save = False
-            else:
-                st.success("✅ Geen planningsconflicten gedetecteerd.")
-                can_save = True
-        except Exception as e:
-            st.error(f"Fout bij conflict detection: {e}")
-            can_save = False  # Default to False on error to prevent accidental saves
-
-        # --- SAVE LOGIC ---
-        if submit_button:
-            if can_save:
-                with st.spinner("Updates naar Google Sheets pushen..."):
-                    conn.update(spreadsheet=url, worksheet="Games", data=edited_df)
-                    st.cache_data.clear()
-                    st.success("Schema succesvol bijgewerkt!")
-                    st.rerun()
-            else:
-                st.error("Kan niet op de server opslaan terwijl conflicten bestaan. Los deze alstublieft eerst op.")
 
 # 3. Simple Admin Access
 with st.sidebar.expander("Beheer"):
