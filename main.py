@@ -1,6 +1,7 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+from helpers import *
 
 # Page Configuration
 st.set_page_config(page_title="RefPlan 2026", layout="wide")
@@ -25,43 +26,6 @@ EXTERNAL_REFEREES = ["Dylan Marcon", "Dzan Erden",
 REFEREES = INTERNAL_REFEREES + EXTERNAL_REFEREES
 
 
-def _get_rate_for_game(wedstrijd, pricing_df, is_internal: bool):
-    """Return the rate for a given game string using the pricing dataframe.
-
-    pricing_df expected columns: ['division','internal_rate','external_rate']
-    Matching is done by checking if a division string appears in the `wedstrijd` text.
-    If no match, tries to use a row with division == 'DEFAULT', otherwise first row.
-    """
-    if pricing_df is None or pricing_df.empty:
-        return 0.0
-
-    wedstrijd_text = str(wedstrijd or "").lower()
-    for _, row in pricing_df.iterrows():
-        div = str(row.get('division', '')).strip().lower()
-        if div and div != 'default' and div in wedstrijd_text:
-            col = 'internal_rate' if is_internal else 'external_rate'
-            try:
-                return float(row.get(col, 0))
-            except Exception:
-                return 0.0
-
-    # fallback to DEFAULT row
-    default_row = pricing_df[pricing_df['division'].astype(str).str.lower() == 'default']
-    if not default_row.empty:
-        row = default_row.iloc[0]
-        col = 'internal_rate' if is_internal else 'external_rate'
-        try:
-            return float(row.get(col, 0))
-        except Exception:
-            return 0.0
-
-    # final fallback: first row
-    try:
-        row = pricing_df.iloc[0]
-        col = 'internal_rate' if is_internal else 'external_rate'
-        return float(row.get(col, 0))
-    except Exception:
-        return 0.0
 # 2. Sidebar Navigation
 menu = st.sidebar.radio("Navigatie", ["Mijn Schema", "Volledig Toernooioverzicht", "Plannersportal 🔒"])
 if menu == "Volledig Toernooioverzicht":
@@ -84,7 +48,7 @@ elif menu == "Mijn Schema":
         ]
         
         if not my_games.empty:
-            st.success(f"Gevonden {len(my_games)} toewijzingen voor {user_name.title()}.")
+            st.success(f"{len(my_games)} toewijzingen gevonden voor {user_name.title()}.")
 
             # Load pricing (if available) to calculate owed amounts
             try:
@@ -104,7 +68,7 @@ elif menu == "Mijn Schema":
                 amt = 0.0
                 for role in ['ref1', 'ref2', 'begeleiding']:
                     if str(row.get(role, '')).strip().lower() == user_name:
-                        rate = _get_rate_for_game(row.get('wedstrijd', ''), pricing_df, is_internal_user)
+                        rate = get_rate_for_game(row.get('wedstrijd', ''), pricing_df, is_internal_user)
                         try:
                             amt += float(rate)
                         except Exception:
@@ -116,7 +80,7 @@ elif menu == "Mijn Schema":
             # Show per-game and total owed
             st.table(my_games_calc[['Datum', 'uur', 'divisie', 'veld', 'wedstrijd', 'ref1', 'ref2', 'begeleiding', 'Bedrag']])
             total_owed = my_games_calc['Bedrag'].sum()
-            st.info(f"Totaal te ontvangen: €{total_owed:.2f}")
+            st.success(f"Totaal te ontvangen: €{total_owed:.2f}")
         else:
             st.warning("Geen wedstrijden gevonden. Controleer alstublieft uw spelling en zorg dat deze overeenkomt met het schema.")
     else:
@@ -166,14 +130,7 @@ elif menu == "Plannersportal 🔒":
             submit_button = st.form_submit_button("💾 Wijzigingen op Server opslaan")
             
         # Pricing editor for planners (separate form)
-        try:
-            pricing_df = conn.read(spreadsheet=url, worksheet="Pricing")
-        except Exception:
-            pricing_df = pd.DataFrame({
-                'division': ['DEFAULT', 'G10', 'G12', 'G14', 'M14', 'J16 NIV1', 'J16 NIV3', 'M16'],
-                'internal_rate': [30, 25, 30, 35, 40, 45, 50, 55],
-                'external_rate': [40, 35, 40, 45, 50, 55, 60, 65]
-            })
+        pricing_df = conn.read(spreadsheet=url, worksheet="Pricing")
 
         with st.form("pricing_form"):
             st.write("**Prijsinstellingen per divisie**")
