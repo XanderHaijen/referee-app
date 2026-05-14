@@ -68,7 +68,7 @@ elif menu == "Mijn Schema":
                 amt = 0.0
                 for role in ['ref1', 'ref2']:
                     if str(row.get(role, '')).strip().lower() == user_name:
-                        rate = get_rate_for_game(row.get('wedstrijd', ''), pricing_df, is_internal_user)
+                        rate = get_rate_for_game(row.get('divisie', ''), pricing_df, is_internal_user)
                         try:
                             amt += float(rate)
                         except Exception:
