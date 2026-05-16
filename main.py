@@ -75,19 +75,21 @@ elif menu == "Begeleiderportaal 🔒":
                     )
 
                     with st.expander(expander_title, expanded=False):
-                        st.write(f"**Crew chief:** {normalize_schedule_value(game_row.get('ref1', ''))}")
-                        st.write(f"**Umpire:** {normalize_schedule_value(game_row.get('ref2', ''))}")
+                        crew_chief = normalize_schedule_value(game_row.get("ref1", ""))
+                        umpire = normalize_schedule_value(game_row.get("ref2", ""))
+                        st.write(f"**Crew chief:** {crew_chief}")
+                        st.write(f"**Umpire:** {umpire}")
 
                         ref1_widget_key = f"{game_key}::ref1"
                         ref2_widget_key = f"{game_key}::ref2"
 
                         st.text_area(
-                            "Evaluatie van de crew chief",
+                            f"Evaluatie van{crew_chief}",
                             value=existing_feedback_map.get((game_key, "ref1"), ""),
                             key=ref1_widget_key,
                         )
                         st.text_area(
-                            "Evaluatie van de umpire",
+                            f"Evaluatie van {umpire}",
                             value=existing_feedback_map.get((game_key, "ref2"), ""),
                             key=ref2_widget_key,
                         )
