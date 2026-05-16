@@ -84,12 +84,12 @@ def _parse_schedule_start(date_value, time_value):
     if not date_text or not time_text:
         return pd.NaT
 
-    date_part = pd.to_datetime(date_text, errors="coerce", dayfirst=True)
-    time_delta = pd.to_timedelta(time_text, errors="coerce")
-    if pd.isna(date_part) or pd.isna(time_delta):
+    combined_value = f"{date_text} {time_text}"
+    start_dt = pd.to_datetime(combined_value, errors="coerce", dayfirst=True)
+    if pd.isna(start_dt):
         return pd.NaT
 
-    return date_part.normalize() + time_delta
+    return start_dt
 
 
 def _unique_preserve_order(values):
