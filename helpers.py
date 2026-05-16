@@ -77,6 +77,30 @@ def read_referee_lists(conn, url, DEFAULT_INTERNAL_REFEREES, DEFAULT_EXTERNAL_RE
 
     return internal_refs, external_refs, mentors
 
+
+def _parse_schedule_start(date_value, time_value):
+    date_text = normalize_schedule_value(date_value)
+    time_text = normalize_schedule_value(time_value)
+    if not date_text or not time_text:
+        return pd.NaT
+
+    date_part = pd.to_datetime(date_text, errors="coerce", dayfirst=True)
+    time_delta = pd.to_timedelta(time_text, errors="coerce")
+    if pd.isna(date_part) or pd.isna(time_delta):
+        return pd.NaT
+
+    return date_part.normalize() + time_delta
+
+
+def _unique_preserve_order(values):
+    seen = set()
+    result = []
+    for value in values:
+        if value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
+
 def normalize_schedule_value(value):
     if pd.isna(value):
         return ""
@@ -84,7 +108,7 @@ def normalize_schedule_value(value):
 
 
 def find_schedule_conflicts(schedule_df):
-    required_columns = ["Datum", "uur", "veld", "ref1", "ref2", "begeleiding"]
+    required_columns = ["Datum", "uur", "duur", "veld", "ref1", "ref2", "begeleiding"]
     missing_columns = [column for column in required_columns if column not in schedule_df.columns]
     if missing_columns:
         raise KeyError(f"Ontbrekende kolommen voor conflictcontrole: {', '.join(missing_columns)}")
@@ -93,44 +117,74 @@ def find_schedule_conflicts(schedule_df):
     assignments["_game_row"] = assignments.index
 
     melted = assignments.melt(
-        id_vars=["_game_row", "Datum", "uur", "veld"],
+        id_vars=["_game_row", "Datum", "uur", "duur", "veld"],
         value_vars=["ref1", "ref2", "begeleiding"],
         var_name="rol",
         value_name="naam",
     )
 
     melted["naam_norm"] = melted["naam"].map(normalize_schedule_value).str.lower()
-    melted["datum_norm"] = pd.to_datetime(melted["Datum"], errors="coerce", dayfirst=True).dt.strftime("%Y-%m-%d")
+    melted["start_dt"] = melted.apply(lambda row: _parse_schedule_start(row["Datum"], row["uur"]), axis=1)
+    melted["datum_norm"] = melted["start_dt"].dt.strftime("%Y-%m-%d")
     melted["datum_norm"] = melted["datum_norm"].fillna(melted["Datum"].map(normalize_schedule_value))
-    melted["uur_norm"] = melted["uur"].map(normalize_schedule_value).str.lower()
+    melted["duur_norm"] = pd.to_numeric(melted["duur"], errors="coerce")
+    melted["end_dt"] = melted["start_dt"] + pd.to_timedelta(melted["duur_norm"], unit="m")
     melted["veld_norm"] = melted["veld"].map(normalize_schedule_value)
 
-    valid_assignments = melted[melted["naam_norm"] != ""].copy()
+    valid_assignments = melted[
+        (melted["naam_norm"] != "")
+        & melted["start_dt"].notna()
+        & melted["end_dt"].notna()
+        & (melted["duur_norm"] > 0)
+    ].copy()
     if valid_assignments.empty:
         return []
 
-    conflict_rows = valid_assignments[
-        valid_assignments.duplicated(subset=["datum_norm", "uur_norm", "naam_norm"], keep=False)
-    ].copy()
-
-    if conflict_rows.empty:
-        return []
-
     conflicts = []
-    for (_, date_norm, time_norm), group in conflict_rows.groupby(["naam_norm", "datum_norm", "uur_norm"], sort=False):
-        display_name = normalize_schedule_value(group["naam"].iloc[0])
-        conflict_fields = group["veld_norm"].drop_duplicates().tolist()
-        conflict_roles = group["rol"].drop_duplicates().tolist()
-        conflicts.append(
-            {
-                "name": display_name,
-                "date": date_norm,
-                "time": time_norm,
-                "fields": conflict_fields,
-                "roles": conflict_roles,
-                "count": len(group),
-            }
-        )
+    ordered_assignments = valid_assignments.sort_values(["datum_norm", "naam_norm", "start_dt", "end_dt", "_game_row"]) 
+
+    for (date_norm, name_norm), group in ordered_assignments.groupby(["datum_norm", "naam_norm"], sort=False):
+        current_group = []
+        current_group_end = pd.NaT
+
+        for row in group.itertuples(index=False):
+            if not current_group:
+                current_group = [row]
+                current_group_end = row.end_dt
+                continue
+
+            if row.start_dt < current_group_end:
+                current_group.append(row)
+                if row.end_dt > current_group_end:
+                    current_group_end = row.end_dt
+                continue
+
+            if len(current_group) > 1:
+                conflicts.append(
+                    {
+                        "name": normalize_schedule_value(current_group[0].naam),
+                        "date": date_norm,
+                        "time": f"{current_group[0].start_dt.strftime('%H:%M')} - {current_group_end.strftime('%H:%M')}",
+                        "fields": _unique_preserve_order([item.veld_norm for item in current_group]),
+                        "roles": _unique_preserve_order([item.rol for item in current_group]),
+                        "count": len(current_group),
+                    }
+                )
+
+            current_group = [row]
+            current_group_end = row.end_dt
+
+        if len(current_group) > 1:
+            conflicts.append(
+                {
+                    "name": normalize_schedule_value(current_group[0].naam),
+                    "date": date_norm,
+                    "time": f"{current_group[0].start_dt.strftime('%H:%M')} - {current_group_end.strftime('%H:%M')}",
+                    "fields": _unique_preserve_order([item.veld_norm for item in current_group]),
+                    "roles": _unique_preserve_order([item.rol for item in current_group]),
+                    "count": len(current_group),
+                }
+            )
 
     return conflicts
 
@@ -141,14 +195,14 @@ def render_schedule_conflicts(conflicts):
         return
 
     st.error("⚠️ **PLANNINGSCONFLICTEN GEDETECTEERD!** Het opslaan is gedeactiveerd.")
-    st.write("De volgende personen zijn meerdere keren ingepland op dezelfde datum en tijd:")
+    st.write("De volgende personen hebben overlappende toewijzingen op dezelfde datum:")
 
     for conflict in conflicts:
         fields = ", ".join(conflict["fields"])
         roles = ", ".join(conflict["roles"])
         st.warning(
-            f"**{conflict['name']}** is op **{conflict['date']}** om **{conflict['time']}** "
-            f"meerdere keren ingepland (Velden: {fields}; Rollen: {roles}; Aantal: {conflict['count']})"
+            f"**{conflict['name']}** heeft overlappende toewijzingen op **{conflict['date']}** "
+            f"tussen **{conflict['time']}** (Velden: {fields}; Rollen: {roles}; Aantal: {conflict['count']})"
         )
 
 

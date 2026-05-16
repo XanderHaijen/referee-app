@@ -114,7 +114,7 @@ elif menu == "Plannersportal 🔒":
                 width="stretch",
                 hide_index=True,
                 # Make Game details read-only, but allow editing of Referees
-                disabled=['Datum', 'uur','divisie', 'veld', 'wedstrijd'],
+                disabled=['Datum', 'uur', 'duur', 'divisie', 'veld', 'wedstrijd'],
                 column_config={
                     "ref1": st.column_config.SelectboxColumn(
                         "Crew chief",
