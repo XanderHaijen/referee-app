@@ -78,18 +78,137 @@ def read_referee_lists(conn, url, DEFAULT_INTERNAL_REFEREES, DEFAULT_EXTERNAL_RE
     return internal_refs, external_refs, mentors
 
 
+MENTOR_FEEDBACK_COLUMNS = [
+    "game_key",
+    "Datum",
+    "uur",
+    "duur",
+    "veld",
+    "wedstrijd",
+    "mentor",
+    "referee_role",
+    "referee",
+    "comment",
+]
+
+
+def load_mentor_feedback(conn, url):
+    try:
+        feedback_df = conn.read(spreadsheet=url, worksheet="Begeleidingen")
+    except Exception:
+        return pd.DataFrame(columns=MENTOR_FEEDBACK_COLUMNS)
+
+    if feedback_df.empty:
+        return pd.DataFrame(columns=MENTOR_FEEDBACK_COLUMNS)
+
+    feedback_df = feedback_df.copy()
+    for column in MENTOR_FEEDBACK_COLUMNS:
+        if column not in feedback_df.columns:
+            feedback_df[column] = ""
+
+    return feedback_df[MENTOR_FEEDBACK_COLUMNS].copy()
+
+
+def build_game_feedback_key(game_row):
+    key_parts = [
+        normalize_schedule_value(game_row.get("Datum", "")),
+        normalize_schedule_value(game_row.get("uur", "")),
+        normalize_schedule_value(game_row.get("duur", "")),
+        normalize_schedule_value(game_row.get("veld", "")),
+        normalize_schedule_value(game_row.get("wedstrijd", "")),
+        normalize_schedule_value(game_row.get("ref1", "")),
+        normalize_schedule_value(game_row.get("ref2", "")),
+        normalize_schedule_value(game_row.get("begeleiding", "")),
+    ]
+    return " | ".join(key_parts)
+
+
+def build_mentor_feedback_rows(games_df, mentor_name, feedback_values):
+    rows = []
+    mentor_text = normalize_schedule_value(mentor_name)
+
+    for _, game_row in games_df.iterrows():
+        game_key = build_game_feedback_key(game_row)
+        for referee_role, referee_column in (("ref1", "ref1"), ("ref2", "ref2")):
+            comment = normalize_schedule_value(feedback_values.get((game_key, referee_role), ""))
+            referee_name = normalize_schedule_value(game_row.get(referee_column, ""))
+            if not comment:
+                continue
+
+            rows.append(
+                {
+                    "game_key": game_key,
+                    "Datum": normalize_schedule_value(game_row.get("Datum", "")),
+                    "uur": normalize_schedule_value(game_row.get("uur", "")),
+                    "duur": normalize_schedule_value(game_row.get("duur", "")),
+                    "veld": normalize_schedule_value(game_row.get("veld", "")),
+                    "wedstrijd": normalize_schedule_value(game_row.get("wedstrijd", "")),
+                    "mentor": mentor_text,
+                    "referee_role": referee_role,
+                    "referee": referee_name,
+                    "comment": comment,
+                }
+            )
+
+    return pd.DataFrame(rows, columns=MENTOR_FEEDBACK_COLUMNS)
+
+
+def prepare_mentor_feedback_update(dataframe):
+    if dataframe is None or dataframe.empty:
+        return pd.DataFrame(columns=MENTOR_FEEDBACK_COLUMNS)
+
+    prepared_df = dataframe.copy().reset_index(drop=True)
+    for column in MENTOR_FEEDBACK_COLUMNS:
+        if column not in prepared_df.columns:
+            prepared_df[column] = ""
+
+    prepared_df = prepared_df[MENTOR_FEEDBACK_COLUMNS]
+    return prepared_df.sort_values(["referee", "Datum", "uur", "mentor"], kind="stable").reset_index(drop=True)
+
+
+def replace_mentor_feedback(existing_feedback_df, mentor_name, games_df, new_feedback_df):
+    base_df = load_mentor_feedback_from_frame(existing_feedback_df)
+    mentor_text = normalize_schedule_value(mentor_name).lower()
+    game_keys = {build_game_feedback_key(game_row) for _, game_row in games_df.iterrows()}
+
+    if not base_df.empty:
+        mask = ~(
+            base_df["mentor"].astype(str).str.strip().str.lower().eq(mentor_text)
+            & base_df["game_key"].astype(str).isin(game_keys)
+        )
+        base_df = base_df[mask].copy()
+
+    if new_feedback_df is None or new_feedback_df.empty:
+        return prepare_mentor_feedback_update(base_df)
+
+    combined_df = pd.concat([base_df, new_feedback_df], ignore_index=True)
+    return prepare_mentor_feedback_update(combined_df)
+
+
+def load_mentor_feedback_from_frame(feedback_df):
+    if feedback_df is None or feedback_df.empty:
+        return pd.DataFrame(columns=MENTOR_FEEDBACK_COLUMNS)
+
+    normalized_feedback = feedback_df.copy()
+    for column in MENTOR_FEEDBACK_COLUMNS:
+        if column not in normalized_feedback.columns:
+            normalized_feedback[column] = ""
+
+    return normalized_feedback[MENTOR_FEEDBACK_COLUMNS].copy()
+
+
 def _parse_schedule_start(date_value, time_value):
     date_text = normalize_schedule_value(date_value)
     time_text = normalize_schedule_value(time_value)
     if not date_text or not time_text:
         return pd.NaT
 
-    date_part = pd.to_datetime(date_text, errors="coerce", dayfirst=True)
-    time_delta = pd.to_timedelta(time_text, errors="coerce")
-    if pd.isna(date_part) or pd.isna(time_delta):
+    combined_value = f"{date_text} {time_text}"
+    start_dt = pd.to_datetime(combined_value, errors="coerce", dayfirst=True)
+    if pd.isna(start_dt):
         return pd.NaT
 
-    return date_part.normalize() + time_delta
+    return start_dt
 
 
 def _unique_preserve_order(values):
