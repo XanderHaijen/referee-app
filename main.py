@@ -4,9 +4,9 @@ import pandas as pd
 from helpers import *
 
 # Page Configuration
-st.set_page_config(page_title="RefPlan 2026", layout="wide")
+st.set_page_config(page_title="Mercurius toernooioverzicht 2026", layout="wide")
 
-st.title("Toernooischeidsrechter Portal")
+st.title("Mercurius toernooioverzicht 2026")
 
 # 1. Connection to Google Sheets
 # Replace 'YOUR_SHEET_URL_HERE' with the link you copied
@@ -34,15 +34,15 @@ mentor_feedback_df = load_mentor_feedback(conn, url)
 MENTOR_ACCESS_CODE = "mentor2026"
 
 # 2. Sidebar Navigation
-menu = st.sidebar.radio("Navigatie", ["Mijn Schema", "Mentorportal 📝", "Volledig Toernooioverzicht", "Plannersportal 🔒"])
+menu = st.sidebar.radio("Navigatie", ["Mijn Schema", "Volledig Toernooioverzicht", "Begeleiderportaal 🔒", "Plannersportal 🔒"])
 if menu == "Volledig Toernooioverzicht":
     st.header("Volledig Wedstrijdschema")
     st.info("Dit beeld is alleen-lezen voor alle deelnemers.")
     st.dataframe(df, width="stretch", hide_index=True)
 
-elif menu == "Mentorportal 📝":
-    st.header("Mentorportal")
-    mentor_code = st.text_input("Voer mentorcode in:", type="password")
+elif menu == "Begeleiderportaal 🔒":
+    st.header("Begeleiderportaal")
+    mentor_code = st.text_input("Voer toegangscode in:", type="password")
 
     if mentor_code == MENTOR_ACCESS_CODE:
         st.success("Toegang verleend. U bent nu in mentormodus.")
