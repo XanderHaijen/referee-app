@@ -31,6 +31,7 @@ INTERNAL_REFEREES, EXTERNAL_REFEREES, MENTORS = \
 # Combined referees list for editor options
 REFEREES = INTERNAL_REFEREES + [referee for referee in EXTERNAL_REFEREES if referee not in INTERNAL_REFEREES]
 mentor_feedback_df = load_mentor_feedback(conn, url)
+MENTOR_ACCESS_CODE = "mentor2026"
 
 # 2. Sidebar Navigation
 menu = st.sidebar.radio("Navigatie", ["Mijn Schema", "Mentorportal 📝", "Volledig Toernooioverzicht", "Plannersportal 🔒"])
@@ -41,87 +42,93 @@ if menu == "Volledig Toernooioverzicht":
 
 elif menu == "Mentorportal 📝":
     st.header("Mentorportal")
-    st.write("Selecteer uw naam om de wedstrijden te zien waarvoor u begeleiding geeft en voeg per referee een evaluatie toe.")
+    mentor_code = st.text_input("Voer mentorcode in:", type="password")
 
-    mentor_name = st.selectbox("Uw naam", MENTORS)
-    mentor_games = df[df["begeleiding"].astype(str).str.lower() == mentor_name.lower()].copy()
+    if mentor_code == MENTOR_ACCESS_CODE:
+        st.success("Toegang verleend. U bent nu in mentormodus.")
+        st.write("Selecteer uw naam om de wedstrijden te zien waarvoor u begeleiding geeft en voeg per referee een evaluatie toe.")
 
-    if mentor_games.empty:
-        st.warning("Er zijn momenteel geen wedstrijden gekoppeld aan deze mentor.")
-    else:
-        st.success(f"{len(mentor_games)} begeleidingsopdrachten gevonden voor {mentor_name}.")
+        mentor_name = st.selectbox("Uw naam", MENTORS)
+        mentor_games = df[df["begeleiding"].astype(str).str.lower() == mentor_name.lower()].copy()
 
-        mentor_existing_feedback = mentor_feedback_df[
-            mentor_feedback_df["mentor"].astype(str).str.lower() == mentor_name.lower()
-        ].copy()
-        existing_feedback_map = {
-            (str(row.game_key), str(row.referee_role)): str(row.comment)
-            for row in mentor_existing_feedback.itertuples(index=False)
-        }
+        if mentor_games.empty:
+            st.warning("Er zijn momenteel geen wedstrijden gekoppeld aan deze mentor.")
+        else:
+            st.success(f"{len(mentor_games)} begeleidingsopdrachten gevonden voor {mentor_name}.")
 
-        with st.form(f"mentor_feedback_form_{mentor_name}"):
-            feedback_widget_map = {}
-
-            for _, game_row in mentor_games.iterrows():
-                game_key = build_game_feedback_key(game_row)
-                expander_title = (
-                    f"{game_row.get('Datum', '')} | {game_row.get('uur', '')} | "
-                    f"{game_row.get('veld', '')} | {game_row.get('wedstrijd', '')}"
-                )
-
-                with st.expander(expander_title, expanded=False):
-                    st.write(f"**Crew chief:** {normalize_schedule_value(game_row.get('ref1', ''))}")
-                    st.write(f"**Umpire:** {normalize_schedule_value(game_row.get('ref2', ''))}")
-
-                    ref1_widget_key = f"{game_key}::ref1"
-                    ref2_widget_key = f"{game_key}::ref2"
-
-                    st.text_area(
-                        "Evaluatie van de crew chief",
-                        value=existing_feedback_map.get((game_key, "ref1"), ""),
-                        key=ref1_widget_key,
-                    )
-                    st.text_area(
-                        "Evaluatie van de umpire",
-                        value=existing_feedback_map.get((game_key, "ref2"), ""),
-                        key=ref2_widget_key,
-                    )
-
-                    feedback_widget_map[(game_key, "ref1")] = ref1_widget_key
-                    feedback_widget_map[(game_key, "ref2")] = ref2_widget_key
-
-            submit_feedback = st.form_submit_button("💾 Begeleidingen opslaan")
-
-        if submit_feedback:
-            feedback_values = {
-                (game_key, referee_role): st.session_state[widget_key]
-                for (game_key, referee_role), widget_key in feedback_widget_map.items()
+            mentor_existing_feedback = mentor_feedback_df[
+                mentor_feedback_df["mentor"].astype(str).str.lower() == mentor_name.lower()
+            ].copy()
+            existing_feedback_map = {
+                (str(row.game_key), str(row.referee_role)): str(row.comment)
+                for row in mentor_existing_feedback.itertuples(index=False)
             }
-            new_feedback_df = build_mentor_feedback_rows(mentor_games, mentor_name, feedback_values)
-            updated_feedback_df = replace_mentor_feedback(mentor_feedback_df, mentor_name, mentor_games, new_feedback_df)
 
-            with st.spinner("Begeleidingen opslaan naar Google Sheets..."):
-                try:
-                    conn.update(
-                        spreadsheet=url,
-                        worksheet="Begeleidingen",
-                        data=prepare_mentor_feedback_update(updated_feedback_df),
+            with st.form(f"mentor_feedback_form_{mentor_name}"):
+                feedback_widget_map = {}
+
+                for _, game_row in mentor_games.iterrows():
+                    game_key = build_game_feedback_key(game_row)
+                    expander_title = (
+                        f"{game_row.get('Datum', '')} | {game_row.get('uur', '')} | "
+                        f"{game_row.get('veld', '')} | {game_row.get('wedstrijd', '')}"
                     )
-                    st.cache_data.clear()
-                    st.success("Begeleidingen succesvol opgeslagen.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Kon begeleidingen niet opslaan: {e}")
 
-        if not mentor_existing_feedback.empty:
-            st.subheader("Uw opgeslagen begeleidingen")
-            for referee_name, referee_feedback in mentor_existing_feedback.sort_values(["referee", "Datum", "uur"]).groupby("referee", sort=False):
-                st.markdown(f"**{referee_name}**")
-                st.dataframe(
-                    referee_feedback[["Datum", "uur", "veld", "wedstrijd", "referee_role", "comment"]],
-                    width="stretch",
-                    hide_index=True,
-                )
+                    with st.expander(expander_title, expanded=False):
+                        st.write(f"**Crew chief:** {normalize_schedule_value(game_row.get('ref1', ''))}")
+                        st.write(f"**Umpire:** {normalize_schedule_value(game_row.get('ref2', ''))}")
+
+                        ref1_widget_key = f"{game_key}::ref1"
+                        ref2_widget_key = f"{game_key}::ref2"
+
+                        st.text_area(
+                            "Evaluatie van de crew chief",
+                            value=existing_feedback_map.get((game_key, "ref1"), ""),
+                            key=ref1_widget_key,
+                        )
+                        st.text_area(
+                            "Evaluatie van de umpire",
+                            value=existing_feedback_map.get((game_key, "ref2"), ""),
+                            key=ref2_widget_key,
+                        )
+
+                        feedback_widget_map[(game_key, "ref1")] = ref1_widget_key
+                        feedback_widget_map[(game_key, "ref2")] = ref2_widget_key
+
+                submit_feedback = st.form_submit_button("💾 Begeleidingen opslaan")
+
+            if submit_feedback:
+                feedback_values = {
+                    (game_key, referee_role): st.session_state[widget_key]
+                    for (game_key, referee_role), widget_key in feedback_widget_map.items()
+                }
+                new_feedback_df = build_mentor_feedback_rows(mentor_games, mentor_name, feedback_values)
+                updated_feedback_df = replace_mentor_feedback(mentor_feedback_df, mentor_name, mentor_games, new_feedback_df)
+
+                with st.spinner("Begeleidingen opslaan naar Google Sheets..."):
+                    try:
+                        conn.update(
+                            spreadsheet=url,
+                            worksheet="Begeleidingen",
+                            data=prepare_mentor_feedback_update(updated_feedback_df),
+                        )
+                        st.cache_data.clear()
+                        st.success("Begeleidingen succesvol opgeslagen.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Kon begeleidingen niet opslaan: {e}")
+
+            if not mentor_existing_feedback.empty:
+                st.subheader("Uw opgeslagen begeleidingen")
+                for referee_name, referee_feedback in mentor_existing_feedback.sort_values(["referee", "Datum", "uur"]).groupby("referee", sort=False):
+                    st.markdown(f"**{referee_name}**")
+                    st.dataframe(
+                        referee_feedback[["Datum", "uur", "veld", "wedstrijd", "referee_role", "comment"]],
+                        width="stretch",
+                        hide_index=True,
+                    )
+    else:
+        st.info("Voer de mentorcode in om toegang te krijgen tot de mentorportal.")
 
 elif menu == "Mijn Schema":
     st.header("Persoonlijke Aanduidingen en Vergoedingen")
