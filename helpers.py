@@ -43,7 +43,7 @@ def get_rate_for_game(divisie, pricing_df, is_internal: bool):
         return 0.0
 
 
-def read_referee_lists():
+def read_referee_lists(conn, url, DEFAULT_INTERNAL_REFEREES, DEFAULT_EXTERNAL_REFEREES, DEFAULT_MENTORS):
     try:
         referees_df = conn.read(spreadsheet=url, worksheet="Referees")
     except Exception:

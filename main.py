@@ -25,7 +25,8 @@ DEFAULT_EXTERNAL_REFEREES = ["Dylan Marcon"]
 DEFAULT_MENTORS = ["Xander Haijen"]
 
 
-INTERNAL_REFEREES, EXTERNAL_REFEREES, MENTORS = read_referee_lists()
+INTERNAL_REFEREES, EXTERNAL_REFEREES, MENTORS = \
+    read_referee_lists(conn, url, DEFAULT_INTERNAL_REFEREES, DEFAULT_EXTERNAL_REFEREES, DEFAULT_MENTORS)
 
 # Combined referees list for editor options
 REFEREES = INTERNAL_REFEREES + [referee for referee in EXTERNAL_REFEREES if referee not in INTERNAL_REFEREES]
