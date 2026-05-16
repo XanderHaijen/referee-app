@@ -84,12 +84,12 @@ elif menu == "Begeleiderportaal 🔒":
                         ref2_widget_key = f"{game_key}::ref2"
 
                         st.text_area(
-                            f"Evaluatie van{crew_chief}",
+                            f"Evaluatie van **{crew_chief}**",
                             value=existing_feedback_map.get((game_key, "ref1"), ""),
                             key=ref1_widget_key,
                         )
                         st.text_area(
-                            f"Evaluatie van {umpire}",
+                            f"Evaluatie van **{umpire}**",
                             value=existing_feedback_map.get((game_key, "ref2"), ""),
                             key=ref2_widget_key,
                         )
@@ -130,7 +130,7 @@ elif menu == "Begeleiderportaal 🔒":
                         hide_index=True,
                     )
     else:
-        st.info("Voer de mentorcode in om toegang te krijgen tot de mentorportal.")
+        st.info("Voer de mentorcode in om toegang te krijgen tot het begeleiderportaal.")
 
 elif menu == "Mijn Schema":
     st.header("Persoonlijke Aanduidingen en Vergoedingen")
@@ -180,7 +180,16 @@ elif menu == "Mijn Schema":
             # Display column with euro formatting (keeps mentors visible as €0.00)
             my_games_calc['Bedrag'] = my_games_calc['Bedrag_num'].apply(lambda x: f"€{x:.2f}")
             # Show per-game and total owed
-            st.table(my_games_calc[['Datum', 'uur', 'divisie', 'veld', 'wedstrijd', 'ref1', 'ref2', 'begeleiding', 'Bedrag']])
+            display_columns = ['Datum', 'uur', 'divisie', 'veld', 'wedstrijd', 'ref1', 'ref2', 'begeleiding', 'Bedrag']
+
+            def _highlight_logged_in_referee(value):
+                return "font-weight: 700;" if str(value).strip().lower() == user_name else ""
+
+            styled_schedule = my_games_calc[display_columns].style.map(
+                _highlight_logged_in_referee,
+                subset=['ref1', 'ref2', 'begeleiding'],
+            )
+            st.dataframe(styled_schedule, width="stretch", hide_index=True)
             total_owed = my_games_calc['Bedrag_num'].sum()
             st.success(f"Totaal te ontvangen wedstrijdvergoedingen: €{total_owed:.2f}")
         else:
