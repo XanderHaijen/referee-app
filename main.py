@@ -39,6 +39,7 @@ if menu == "Volledig Toernooioverzicht":
     st.header("Volledig Wedstrijdschema")
     st.info("Dit beeld is alleen-lezen voor alle deelnemers.")
     df_overview = df.copy()
+    df_overview["Datum"] = df_overview.apply(lambda r: format_date_day_month(r.get("Datum", "")), axis=1)
     df_overview["uur"] = df_overview.apply(lambda r: format_time_range(r.get("Datum", ""), r.get("uur", ""), r.get("duur", "")), axis=1)
     st.dataframe(df_overview, width="stretch", hide_index=True)
 
@@ -72,7 +73,7 @@ elif menu == "Begeleiderportaal 🔒":
                 for _, game_row in mentor_games.iterrows():
                     game_key = build_game_feedback_key(game_row)
                     expander_title = (
-                        f"{game_row.get('Datum', '')} | {game_row.get('uur', '')} | "
+                        f"{format_date_day_month(game_row.get('Datum', ''))} | {format_time_range(game_row.get('Datum', ''), game_row.get('uur', ''), game_row.get('duur', ''))} | "
                         f"{game_row.get('veld', '')} | {game_row.get('wedstrijd', '')}"
                     )
 
@@ -126,8 +127,11 @@ elif menu == "Begeleiderportaal 🔒":
                 st.subheader("Uw opgeslagen begeleidingen")
                 for referee_name, referee_feedback in mentor_existing_feedback.sort_values(["referee", "Datum", "uur"]).groupby("referee", sort=False):
                     st.markdown(f"**{referee_name}**")
+                    display_df = referee_feedback.copy()
+                    display_df["Datum"] = display_df["Datum"].apply(lambda d: format_date_day_month(d))
+                    display_df["uur"] = display_df.apply(lambda r: format_time_range(r.get("Datum", ""), r.get("uur", ""), r.get("duur", "")), axis=1)
                     st.dataframe(
-                        referee_feedback[["Datum", "uur", "veld", "wedstrijd", "referee_role", "comment"]],
+                        display_df[["Datum", "uur", "veld", "wedstrijd", "referee_role", "comment"]],
                         width="stretch",
                         hide_index=True,
                     )
@@ -182,7 +186,8 @@ elif menu == "Mijn Schema":
             # Display column with euro formatting (keeps mentors visible as €0.00)
             my_games_calc['Bedrag'] = my_games_calc['Bedrag_num'].apply(lambda x: f"€{x:.2f}")
             # Show per-game and total owed
-            # Format the 'uur' column to show start -- end time ranges
+            # Format the 'Datum' and 'uur' columns for display
+            my_games_calc['Datum'] = my_games_calc.apply(lambda r: format_date_day_month(r.get('Datum', '')), axis=1)
             my_games_calc['uur'] = my_games_calc.apply(lambda r: format_time_range(r.get('Datum', ''), r.get('uur', ''), r.get('duur', '')), axis=1)
             display_columns = ['Datum', 'uur', 'divisie', 'veld', 'wedstrijd', 'ref1', 'ref2', 'begeleiding', 'Bedrag']
 
@@ -284,4 +289,6 @@ with st.sidebar.expander("Beheer"):
     pw = st.text_input("Beheerwachtwoord", type="password")
     if pw == "referee2026": 
         st.write("Toegang verleend")
-        st.download_button("Schema als CSV downloaden", df.to_csv(), "schedule.csv")
+        df_download = df.copy()
+        df_download["Datum"] = df_download.apply(lambda r: format_date_day_month(r.get("Datum", "")), axis=1)
+        st.download_button("Schema als CSV downloaden", df_download.to_csv(index=False), "schedule.csv")

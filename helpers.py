@@ -232,6 +232,24 @@ def format_time_range(date_value, time_value, duration_value):
     return f"{start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}"
 
 
+def format_date_day_month(date_value):
+    """Format a date value to show only day and month as 'DD/MM'.
+
+    If parsing fails, returns the normalized original value.
+    """
+    date_text = normalize_schedule_value(date_value)
+    if not date_text:
+        return ""
+
+    try:
+        dt = pd.to_datetime(date_text, errors="coerce", dayfirst=True)
+        if pd.isna(dt):
+            return date_text
+        return dt.strftime("%d/%m")
+    except Exception:
+        return date_text
+
+
 def _unique_preserve_order(values):
     seen = set()
     result = []
@@ -300,10 +318,15 @@ def find_schedule_conflicts(schedule_df):
                 continue
 
             if len(current_group) > 1:
+                try:
+                    display_date = current_group[0].start_dt.strftime('%d/%m')
+                except Exception:
+                    display_date = normalize_schedule_value(current_group[0].Datum)
+
                 conflicts.append(
                     {
                         "name": normalize_schedule_value(current_group[0].naam),
-                        "date": date_norm,
+                        "date": display_date,
                         "time": f"{current_group[0].start_dt.strftime('%H:%M')} - {current_group_end.strftime('%H:%M')}",
                         "fields": _unique_preserve_order([item.veld_norm for item in current_group]),
                         "roles": _unique_preserve_order([item.rol for item in current_group]),
@@ -315,10 +338,15 @@ def find_schedule_conflicts(schedule_df):
             current_group_end = row.end_dt
 
         if len(current_group) > 1:
+            try:
+                display_date = current_group[0].start_dt.strftime('%d/%m')
+            except Exception:
+                display_date = normalize_schedule_value(current_group[0].Datum)
+
             conflicts.append(
                 {
                     "name": normalize_schedule_value(current_group[0].naam),
-                    "date": date_norm,
+                    "date": display_date,
                     "time": f"{current_group[0].start_dt.strftime('%H:%M')} - {current_group_end.strftime('%H:%M')}",
                     "fields": _unique_preserve_order([item.veld_norm for item in current_group]),
                     "roles": _unique_preserve_order([item.rol for item in current_group]),
