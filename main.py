@@ -41,7 +41,9 @@ if menu == "Volledig Toernooioverzicht":
     df_overview = df.copy()
     df_overview["Datum"] = df_overview.apply(lambda r: format_date_day_month(r.get("Datum", "")), axis=1)
     df_overview["uur"] = df_overview.apply(lambda r: format_time_range(r.get("Datum", ""), r.get("uur", ""), r.get("duur", "")), axis=1)
-    st.dataframe(df_overview, width="stretch", hide_index=True)
+    # Show all columns except the duration ('duur') in the public overview
+    df_overview_display = df_overview.drop(columns=["duur"], errors="ignore")
+    st.dataframe(df_overview_display, width="stretch", hide_index=True)
 
 elif menu == "Begeleiderportaal 🔒":
     st.header("Begeleiderportaal")
