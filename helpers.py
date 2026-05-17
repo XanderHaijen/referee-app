@@ -211,6 +211,27 @@ def _parse_schedule_start(date_value, time_value):
     return start_dt
 
 
+def format_time_range(date_value, time_value, duration_value):
+    """Return a formatted time range 'HH:MM -- HH:MM' using date, start time and duration (minutes).
+
+    If parsing fails or duration is missing/invalid, falls back to returning the normalized start time text.
+    """
+    start_dt = _parse_schedule_start(date_value, time_value)
+    if pd.isna(start_dt):
+        return normalize_schedule_value(time_value)
+
+    try:
+        duration = float(normalize_schedule_value(duration_value)) if normalize_schedule_value(duration_value) != "" else 0
+    except Exception:
+        duration = 0
+
+    if duration <= 0:
+        return start_dt.strftime("%H:%M")
+
+    end_dt = start_dt + pd.to_timedelta(duration, unit="m")
+    return f"{start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}"
+
+
 def _unique_preserve_order(values):
     seen = set()
     result = []

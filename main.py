@@ -38,7 +38,9 @@ menu = st.sidebar.radio("Navigatie", ["Mijn Schema", "Volledig Toernooioverzicht
 if menu == "Volledig Toernooioverzicht":
     st.header("Volledig Wedstrijdschema")
     st.info("Dit beeld is alleen-lezen voor alle deelnemers.")
-    st.dataframe(df, width="stretch", hide_index=True)
+    df_overview = df.copy()
+    df_overview["uur"] = df_overview.apply(lambda r: format_time_range(r.get("Datum", ""), r.get("uur", ""), r.get("duur", "")), axis=1)
+    st.dataframe(df_overview, width="stretch", hide_index=True)
 
 elif menu == "Begeleiderportaal 🔒":
     st.header("Begeleiderportaal")
@@ -180,6 +182,8 @@ elif menu == "Mijn Schema":
             # Display column with euro formatting (keeps mentors visible as €0.00)
             my_games_calc['Bedrag'] = my_games_calc['Bedrag_num'].apply(lambda x: f"€{x:.2f}")
             # Show per-game and total owed
+            # Format the 'uur' column to show start -- end time ranges
+            my_games_calc['uur'] = my_games_calc.apply(lambda r: format_time_range(r.get('Datum', ''), r.get('uur', ''), r.get('duur', '')), axis=1)
             display_columns = ['Datum', 'uur', 'divisie', 'veld', 'wedstrijd', 'ref1', 'ref2', 'begeleiding', 'Bedrag']
 
             def _highlight_logged_in_referee(value):
